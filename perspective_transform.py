@@ -5,6 +5,7 @@ import cv2
 import glob
 import os
 import os.path as path
+import binary_thresholds as bt
 
 def save_full_example(output_image_name, corrected_image, quad_image, transform_image):
     """
@@ -204,7 +205,7 @@ def connected_line_functions(lines, h, w):
     return left_line_f, right_line_f
 
 
-def find_quad_points(image, s_ty_offset=30, s_by_offset=15, d_ty_offset=5):
+def find_quad_points(image, s_ty_offset=50, s_by_offset=15, d_ty_offset=5):
     """
     Given a binary image with an assumed to be straigt road,
     discover the left and right lanes and uses these to identify
@@ -294,7 +295,7 @@ def demo_transform(calibration_image_names, road_image_names, output_folder, sha
         h, w, _ = corrected_image.shape
 
         # create threshholded binary image
-        binary_image = pl.combined_binary(corrected_image)
+        binary_image = bt.combined_binary(corrected_image)
 
         src, dst = find_quad_points(binary_image)
         quad_image = convert_binary_to_color(binary_image)
@@ -305,10 +306,10 @@ def demo_transform(calibration_image_names, road_image_names, output_folder, sha
 
         transformed = perspective_transform(corrected_image, src, dst)
         draw_quad(transformed, dst, color=[0, 0, 255])
-        pl.save_single_example('/'.join([output_folder, "transformed_{}".format(base_name)]),
-                               'perspective transformed', cv2.cvtColor(transformed, cv2.COLOR_BGR2RGB), cmap='jet')
+        pl.save_single_example('/'.join([output_folder, "init_perspective_{}".format(base_name)]),
+                               'initializing perspective transform', cv2.cvtColor(transformed, cv2.COLOR_BGR2RGB), cmap='jet')
 
-        save_full_example('/'.join([output_folder, "perspective_{}".format(base_name)]),
+        save_full_example('/'.join([output_folder, "perspective_process_{}".format(base_name)]),
                           cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB),
                           quad_image,
                           cv2.cvtColor(transformed, cv2.COLOR_BGR2RGB))

@@ -101,7 +101,27 @@ Below is an example sequence of this initialization process on both of the provi
 
 ## Lane Line Fitting with Polynomial
 
-TODO
+Although we were able to successfully find the lane lines and fit them to a linear equation earlier
+using a hough line algorithm when we initialized our perspective transform, we needed a more holistic
+approach to handle curved lines.
+
+We performed a significant amount of copy/paste from module 33 of the Udacity Advanced Lane Finding lesson.
+(code in finding_lines.py)
+
+Using a histogram to discover the likely start of the lane lines along the bottom of the image. The histogram
+peaks indicate where a large number of pixels are turned on in the column, making it a likely lane line origin.
+
+From the starting point, we use a small rectangular window to move up the image form the lane line origins.
+The algorithm looks for active pixels and records them. If enough are found it recenters the window on
+ the new center to follow the bulk of pixels along a line.
+ 
+Once the search is completed, the algorithm uses the found pixels on the left and right to fit
+a poly line through each group of points.
+
+The image below visualizes the search windows (green) along the lane lines (red and blue) with the
+fitted polylines (yellow).
+
+![sliding_search][sliding_search]
 
 ## Lane Curvature
 
@@ -124,9 +144,10 @@ TODO
 
 [calibration_image]: ./output_folder/example_calibration3.jpg "calibration_image"
 [undistort_image]: ./output_folder/corrected_test1.jpg "corrected_image"
-[binary_sequence1_image]: ./output_folder/pipeline_test3.jpg "binary_sequence1_image"
-[binary_sequence2_image]: ./output_folder/pipeline_test4.jpg "binary_sequence2_image"
-[perspective_transform1_image]: ./output_folder/perspective_straight_lines1.jpg "perspective_transform1_image"
-[perspective_transform2_image]: ./output_folder/perspective_straight_lines2.jpg "perspective_transform2_image"
+[binary_sequence1_image]: ./output_folder/pipeline_binary_process_test3.jpg "binary_sequence1_image"
+[binary_sequence2_image]: ./output_folder/pipeline_binary_process_test4.jpg "binary_sequence2_image"
+[perspective_transform1_image]: ./output_folder/perspective_process_straight_lines1.jpg "perspective_transform1_image"
+[perspective_transform2_image]: ./output_folder/perspective_process_straight_lines2.jpg "perspective_transform2_image"
+[sliding_search]: ./output_folder/pipeline_sliding_search_test3.jpg "sliding_search"
 
 
