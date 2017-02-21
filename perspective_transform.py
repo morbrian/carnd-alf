@@ -6,11 +6,39 @@ import glob
 import os
 import os.path as path
 
+def save_full_example(output_image_name, corrected_image, quad_image, transform_image):
+    """
+    create a single figure of all images in a row and save to output name
+    :param output_image_name: output image file name
+    :param corrected_image: first image on left
+    :param quad_image: second image
+    :param transform_image: third image
+    """
+    fig = plt.figure()
+    fig.subplots_adjust(hspace=.5)
+
+    subplot = plt.subplot(1, 3, 1)
+    subplot.axis('off')
+    subplot.set_title('corrected')
+    plt.imshow(corrected_image)
+
+    subplot = plt.subplot(1, 3, 2)
+    subplot.axis('off')
+    subplot.set_title('quad points')
+    plt.imshow(quad_image, cmap='jet')
+
+    subplot = plt.subplot(1, 3, 3)
+    subplot.axis('off')
+    subplot.set_title('perspective transformed')
+    plt.imshow(transform_image)
+
+    plt.savefig(output_image_name, bbox_inches='tight', dpi=150)
+    plt.close(fig)
+    print("saved to: {}".format(output_image_name))
+
 
 def region_of_interest(image, vertices):
     """
-    Applies an image mask.
-
     Only keeps the region of the image defined by the polygon
     formed from `vertices`. The rest of the image is set to black.
     """
@@ -53,14 +81,25 @@ def poly_line_f(points):
 
 
 def slope(x1, y1, x2, y2):
+    """
+    Returns the slope of a line intersecting points (x1, y1) and (x2, y2)
+    """
     return (y2-y1)/(x2-x1)
 
 
 def y_intercept(x1, y1, m):
+    """
+    Returns the y intecept for the line with slop `m` intersecting point (x1, y1)
+    """
     return y1 - m * x1
 
 
 def solve_for_x_given_y(line_f, y):
+    """
+    Return the x value for the line function `line_f` when y equals the given y.
+    :param line_f: line function
+    :param y: y value
+    """
     assert len(line_f.coeffs) == 2, "line function expected to define simple line"
     return (y - line_f.coeffs[1]) / line_f.coeffs[0]
 
@@ -71,7 +110,7 @@ def line_intersection(line1, line2):
     Reference: http://stackoverflow.com/questions/36686270/how-to-find-point-of-intersection-of-two-line-segments-in-python
     :param line1:
     :param line2:
-    :Return x coordinage of intersection
+    :Return coordinate of intersection (x, y)
     """
     a, b = list(line1)
     c, d = list(line2)
@@ -82,8 +121,8 @@ def line_intersection(line1, line2):
 
 def hough_lines(image, rho, theta, threshold, min_line_len, max_line_gap):
     """
-
-    :param image: `img` should be the output of a Canny transform.
+    Given a binary image, return the line definitions using Hough Lines algorithm.
+    :param image: `img` should be a black and white binary image.
     :param rho:
     :param theta:
     :param threshold:
@@ -103,8 +142,7 @@ def simple_quad(h, w, h_div=0.6, bw_div=0.08, tw_div=0.46, w_shift_div=0.02):
     bw_div: percent of rectangle width to size quad bottom insets
     tw_div: percent of rectangle width to size quad top insets
     w_shift_div: percent of rectangle width to shift entire quad left or right from center
-
-    Return: 4 vertices as an arry of one numpy array containing the 4 vertices
+    Return: 4 vertices as an array of one numpy array containing the 4 vertices
     """
     w_shift = w * w_shift_div # shift polygon distance if lanes not perfectly centered
 
@@ -140,6 +178,14 @@ def enhanced_line(x1, y1, x2, y2, count=10, y_max=None):
 
 
 def connected_line_functions(lines, h, w):
+    """
+    Given a list of unrelated lines, attempt to group the points
+    into left and right bins to create a single left line and single right line.
+    :param lines: list of lines as point pairs
+    :param h: height of space
+    :param w: width of space
+    :return: functions for left and right lines (left, right)
+    """
     w_mid = w / 2  # center of image from left to right
     left_bin = []  # collect left side points
     right_bin = []  # collect right side points
@@ -158,7 +204,17 @@ def connected_line_functions(lines, h, w):
     return left_line_f, right_line_f
 
 
-def find_quad_points(image):
+def find_quad_points(image, s_ty_offset=30, s_by_offset=15, d_ty_offset=5):
+    """
+    Given a binary image with an assumed to be straigt road,
+    discover the left and right lanes and uses these to identify
+    a good trapezoidal shap to use as source points for prespective transforms.
+    :param image: binary image
+    :param s_ty_offset: top y offset
+    :param s_by_offset: bottom y offset
+    :param d_ty_offset: destination top y offset
+    :return: suggested source and destination points for perspective transform.
+    """
     [h, w] = image.shape
     roi_image = region_of_interest(image, simple_quad(h, w))
     lines = hough_lines(roi_image,
@@ -175,19 +231,39 @@ def find_quad_points(image):
 
     # define the quad points as the left, right lanes intersected by top and bottom horizontal lines
     x_intersect, y_intersect = line_intersection(left, right)
-    left_top_y = int(y_intersect + 5)
+    left_top_y = int(y_intersect + s_ty_offset)
     right_top_y = left_top_y
     left_top_x = int(solve_for_x_given_y(left, left_top_y))
     right_top_x = int(solve_for_x_given_y(right, right_top_y))
-    left_bottom_y = int(h - 15)
+    left_bottom_y = int(h - s_by_offset)
     left_bottom_x = int(solve_for_x_given_y(left, left_bottom_y))
     right_bottom_y = int(left_bottom_y)
     right_bottom_x = int(solve_for_x_given_y(right, right_bottom_y))
 
-    return np.array([(left_bottom_x, left_bottom_y),
-                     (left_top_x, left_top_y),
-                     (right_top_x, right_top_y),
-                     (right_bottom_x, right_bottom_y)])
+    src = np.array([(left_bottom_x, left_bottom_y),
+                    (left_top_x, left_top_y),
+                    (right_top_x, right_top_y),
+                    (right_bottom_x, right_bottom_y)], dtype='float32')
+
+    dst = np.array([src[0], (src[0][0], d_ty_offset), (src[3][0], d_ty_offset), src[3]], dtype='float32')
+
+    return src, dst
+
+
+def perspective_transform(image, src, dst):
+    M = cv2.getPerspectiveTransform(src, dst)
+    return cv2.warpPerspective(image, M, (image.shape[1], image.shape[0]), flags=cv2.INTER_LINEAR)
+
+
+def draw_quad(image, quad, color=[0, 255, 0], thickness=4):
+    cv2.line(image, tuple(quad[0]), tuple(quad[1]), color=color, thickness=thickness)
+    cv2.line(image, tuple(quad[1]), tuple(quad[2]), color=color, thickness=thickness)
+    cv2.line(image, tuple(quad[2]), tuple(quad[3]), color=color, thickness=thickness)
+    cv2.line(image, tuple(quad[3]), tuple(quad[0]), color=color, thickness=thickness)
+
+
+def convert_binary_to_color(image):
+    return cv2.cvtColor(image.astype('uint8') * 255, cv2.COLOR_GRAY2BGR)
 
 
 def demo_transform(calibration_image_names, road_image_names, output_folder, shape=(720, 1280), xct=9, yct=6):
@@ -215,29 +291,27 @@ def demo_transform(calibration_image_names, road_image_names, output_folder, sha
 
         # undistort the image
         corrected_image = cc.undistort_image(original_image, mtx, dist, mtx)
+        h, w, _ = corrected_image.shape
 
         # create threshholded binary image
         binary_image = pl.combined_binary(corrected_image)
 
-        quad_points = find_quad_points(binary_image)
-        quad_image = np.array(corrected_image, copy=True)
-        cv2.line(quad_image, tuple(quad_points[0]), tuple(quad_points[1]), color=[255, 0, 0], thickness=4)
-        cv2.line(quad_image, tuple(quad_points[1]), tuple(quad_points[2]), color=[255, 0, 0], thickness=4)
-        cv2.line(quad_image, tuple(quad_points[2]), tuple(quad_points[3]), color=[255, 0, 0], thickness=4)
-        cv2.line(quad_image, tuple(quad_points[3]), tuple(quad_points[0]), color=[255, 0, 0], thickness=4)
-        # cv2.polylines(quad_image, quad_points, True, color=[255, 0, 0], thickness=4)
-        # for point in quad_points:
-        #     cv2.circle(quad_image, tuple(point), 5, color=[255, 0, 0])
+        src, dst = find_quad_points(binary_image)
+        quad_image = convert_binary_to_color(binary_image)
+        draw_quad(quad_image, src, color=[255, 0, 0])
+        draw_quad(quad_image, dst, color=[0, 255, 0])
         pl.save_single_example('/'.join([output_folder, "srcquad_{}".format(base_name)]),
                                'src quad', quad_image, cmap='jet')
 
+        transformed = perspective_transform(corrected_image, src, dst)
+        draw_quad(transformed, dst, color=[0, 0, 255])
+        pl.save_single_example('/'.join([output_folder, "transformed_{}".format(base_name)]),
+                               'perspective transformed', cv2.cvtColor(transformed, cv2.COLOR_BGR2RGB), cmap='jet')
 
-
-
-        # save_full_example('/'.join([output_folder, "pipeline_{}".format(base_name)]),
-        #                   cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB),
-        #                   cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB),
-        #                   binary_image)
+        save_full_example('/'.join([output_folder, "perspective_{}".format(base_name)]),
+                          cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB),
+                          quad_image,
+                          cv2.cvtColor(transformed, cv2.COLOR_BGR2RGB))
 
 
 def main():
