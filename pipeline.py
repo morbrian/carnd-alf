@@ -9,6 +9,9 @@ import camera_calibration as cc
 import perspective_transform as pt
 import binary_thresholds as bt
 import finding_lines as fl
+from moviepy.editor import VideoFileClip
+import imageio
+imageio.plugins.ffmpeg.download()
 
 
 def save_single_example(output_image_name, title, image, cmap='jet'):
@@ -116,6 +119,24 @@ def demo_pipeline(calibration_image_names, road_image_names, straight_image_name
                                     "sliding search", transformed, searched_image, nonzerox, nonzeroy,
                                     left_fit, right_fit, left_lane_inds, right_lane_inds)
 
+        ploty, (nonzerox, nonzeroy), (left_fit, right_fit), (left_fitx, right_fitx) = \
+            fl.margin_search(transformed, left_fit, right_fit)
+
+        left_curverad1, right_curverad1 = fl.radius_curvature_pixel_space(ploty, left_fit, right_fit)
+        print("curves: {}, {}".format(left_curverad1, right_curverad1))
+
+        left_curverad2, right_curverad2 = fl.radius_curvature_meters(ploty, left_fitx, right_fitx)
+        print("curves: {}, {}".format(left_curverad2, right_curverad2))
+        avg_curvature_meters = (left_curverad2 + right_curverad2) / 2.
+        print("curvature meters: {}".format(avg_curvature_meters))
+
+        off_center_meters = fl.off_center_meters(binary_image.shape[1], left_fitx[-1], right_fitx[-1])
+        print("off center: {}".format(off_center_meters))
+
+        fl.visualize_road_ahead('/'.join([output_folder, "pipeline_road_ahead_{}".format(base_name)]),
+                                "pipeline road ahead", cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB),
+                                transformed, left_fit, right_fit, avg_curvature_meters, off_center_meters,
+                                cv2.getPerspectiveTransform(dst, src))
 
 def main():
     import optparse

@@ -205,7 +205,7 @@ def connected_line_functions(lines, h, w):
     return left_line_f, right_line_f
 
 
-def find_quad_points(image, s_ty_offset=50, s_by_offset=15, d_ty_offset=5):
+def find_quad_points(image, s_ty_offset=40, s_by_offset=15, d_ty_offset=5):
     """
     Given a binary image with an assumed to be straigt road,
     discover the left and right lanes and uses these to identify

@@ -125,11 +125,19 @@ fitted polylines (yellow).
 
 ## Lane Curvature
 
-TODO
+Our lane curvature calculations are in finding_lines.py. We first used the polynomial fit line output 
+of the lane fitting algorithm as input to the `radius_curvature_pixel_space` function (line 241)
+to produce the curved lines in pixel space. Then based on advice in the lesson we get the
+real world curvature in meters in `radius_curvature_meters` (line 257).
 
 ## Lane Line Result Visualization
 
-TODO
+The road ahead is highlighted in green in the image sample below, and the curvature and distance
+from the lane center are both labeled in the top left corner of the image in meters.
+
+The code for this visualization is at `finding_lanes.py:visualize_road_ahead line: 27`.
+
+![road_ahead][road_ahead]
 
 ## Pipeline Video
 
@@ -149,5 +157,6 @@ TODO
 [perspective_transform1_image]: ./output_folder/perspective_process_straight_lines1.jpg "perspective_transform1_image"
 [perspective_transform2_image]: ./output_folder/perspective_process_straight_lines2.jpg "perspective_transform2_image"
 [sliding_search]: ./output_folder/pipeline_sliding_search_test3.jpg "sliding_search"
+[road_ahead]: ./output_folder/pipeline_road_ahead_test4.jpg "road_ahead"
 
 
