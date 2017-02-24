@@ -40,15 +40,19 @@ def save_image(output_image_name, title, image):
 
 
 def visualize_road_ahead(undist, warped, left_fit, right_fit,
-                         curvature_meters, off_center_meters, Minv):
-    undist = cv2.cvtColor(undist, cv2.COLOR_BGR2RGB)
+                         curvature_meters, off_center_meters, Minv, use_rgb=False, frame=-1):
+    if use_rgb:
+        undist = cv2.cvtColor(undist, cv2.COLOR_BGR2RGB)
     ploty = np.linspace(0, warped.shape[0]-1, warped.shape[0])
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
     right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
 
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(warped).astype(np.uint8)
-    color_warp = cv2.cvtColor(warp_zero, cv2.COLOR_GRAY2RGB)
+    if use_rgb:
+        color_warp = cv2.cvtColor(warp_zero, cv2.COLOR_GRAY2RGB)
+    else:
+        color_warp = cv2.cvtColor(warp_zero, cv2.COLOR_GRAY2BGR)
 
     # Recast the x and y points into usable format for cv2.fillPoly()
     pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
@@ -69,6 +73,9 @@ def visualize_road_ahead(undist, warped, left_fit, right_fit,
                 font, 1, (255, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(result, 'Vehicle is {:1.4f}m off center'.format(off_center_meters), (10, 60),
                 font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    if frame > 0:
+        cv2.putText(result, 'Frame({:05d})'.format(frame), (10, 90),
+                    font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
     return result
 
@@ -174,7 +181,7 @@ def sliding_window_search(warped, window_width=30, window_height=80, margin=50):
     return output
 
 
-def sliding_histo_search(binary_warped):
+def sliding_histo_search(binary_warped, visualize=False):
     """
     Reference: Udacity Advanced Lane Finding: (33) Finding The Lines
     :param binary_warped:
@@ -184,7 +191,10 @@ def sliding_histo_search(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[int(binary_warped.shape[0]/2):, :], axis=0)
     # Create an output image to draw on and  visualize the result
-    out_img = cv2.cvtColor(binary_warped.astype('uint8') * 255, cv2.COLOR_GRAY2BGR)
+    if visualize:
+        out_img = cv2.cvtColor(binary_warped.astype('uint8') * 255, cv2.COLOR_GRAY2BGR)
+    else:
+        out_img = None
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = np.int(histogram.shape[0]/2)
@@ -219,9 +229,10 @@ def sliding_histo_search(binary_warped):
         win_xleft_high = leftx_current + margin
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
-        # Draw the windows on the visualization image
-        out_img = cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 2)
-        out_img = cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
+        if visualize:
+            # Draw the windows on the visualization image
+            out_img = cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 2)
+            out_img = cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
                           (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
