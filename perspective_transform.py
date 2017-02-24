@@ -251,8 +251,7 @@ def find_quad_points(image, s_ty_offset=40, s_by_offset=15, d_ty_offset=5):
     return src, dst
 
 
-def perspective_transform(image, src, dst):
-    M = cv2.getPerspectiveTransform(src, dst)
+def perspective_transform(image, M):
     return cv2.warpPerspective(image, M, (image.shape[1], image.shape[0]), flags=cv2.INTER_LINEAR)
 
 
@@ -304,7 +303,7 @@ def demo_transform(calibration_image_names, road_image_names, output_folder, sha
         pl.save_single_example('/'.join([output_folder, "srcquad_{}".format(base_name)]),
                                'src quad', quad_image, cmap='jet')
 
-        transformed = perspective_transform(corrected_image, src, dst)
+        transformed = perspective_transform(corrected_image, cv2.getPerspectiveTransform(src, dst))
         draw_quad(transformed, dst, color=[0, 0, 255])
         pl.save_single_example('/'.join([output_folder, "init_perspective_{}".format(base_name)]),
                                'initializing perspective transform', cv2.cvtColor(transformed, cv2.COLOR_BGR2RGB), cmap='jet')

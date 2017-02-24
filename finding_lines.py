@@ -3,8 +3,13 @@ import matplotlib.pyplot as plt
 import cv2
 
 
-def visualize_sliding_search(output_image_name, title, warped, searched, nonzerox, nonzeroy,
+def visualize_sliding_search(output_image_name, title, warped, searched,
                              left_fit, right_fit, left_lane_inds, right_lane_inds):
+    # Identify the x and y positions of all nonzero pixels in the image
+    nonzero = warped.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+
     ploty = np.linspace(0, warped.shape[0]-1, warped.shape[0])
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
     right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
@@ -23,8 +28,20 @@ def visualize_sliding_search(output_image_name, title, warped, searched, nonzero
     print("saved to: {}".format(output_image_name))
 
 
-def visualize_road_ahead(output_image_name, title, undist, warped, left_fit, right_fit,
+def save_image(output_image_name, title, image):
+    fig = plt.figure()
+    subplot = plt.subplot(1, 1, 1)
+    subplot.axis('off')
+    subplot.set_title(title)
+    subplot.imshow(image)
+    plt.savefig(output_image_name, bbox_inches='tight', dpi=150)
+    plt.close(fig)
+    print("saved to: {}".format(output_image_name))
+
+
+def visualize_road_ahead(undist, warped, left_fit, right_fit,
                          curvature_meters, off_center_meters, Minv):
+    undist = cv2.cvtColor(undist, cv2.COLOR_BGR2RGB)
     ploty = np.linspace(0, warped.shape[0]-1, warped.shape[0])
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
     right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
@@ -53,14 +70,7 @@ def visualize_road_ahead(output_image_name, title, undist, warped, left_fit, rig
     cv2.putText(result, 'Vehicle is {:1.4f}m off center'.format(off_center_meters), (10, 60),
                 font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-    fig = plt.figure()
-    subplot = plt.subplot(1, 1, 1)
-    subplot.axis('off')
-    subplot.set_title(title)
-    subplot.imshow(result)
-    plt.savefig(output_image_name, bbox_inches='tight', dpi=150)
-    plt.close(fig)
-    print("saved to: {}".format(output_image_name))
+    return result
 
 
 def window_mask(width, height, img_ref, center, level):
@@ -241,7 +251,7 @@ def sliding_histo_search(binary_warped):
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
 
-    return out_img, nonzerox, nonzeroy, left_fit, right_fit, left_lane_inds, right_lane_inds
+    return out_img, left_fit, right_fit, left_lane_inds, right_lane_inds
 
 
 def margin_search(binary_warped, left_fit, right_fit):
@@ -275,7 +285,7 @@ def margin_search(binary_warped, left_fit, right_fit):
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
     right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
 
-    return ploty, (nonzerox, nonzeroy), (left_fit, right_fit), (left_fitx, right_fitx)
+    return ploty, (left_fit, right_fit), (left_fitx, right_fitx)
 
 
 def radius_curvature_pixel_space(ploty, left_fit, right_fit):

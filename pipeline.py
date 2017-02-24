@@ -14,6 +14,92 @@ import imageio
 imageio.plugins.ffmpeg.download()
 
 
+class RoadAheadPipeline:
+    """ container class for road ahead image processing """
+
+    mtx = None  # matrix for camera calibration
+    dist = None  # distance array for camera calibration
+    src = None  # source points for transforms
+    dst = None  # destination points for transforms
+    M_transform = None  # transformation matrix for overhead perspective
+    Minv_transform = None  # inverse transformation matrix for camera perspective
+    left_fit = None  # left lane line polynomial
+    right_fit = None  # right lane line polynomial
+    left_curve_radius_meters = None  # left radius meters
+    right_curve_radius_meters = None  # right radius meters
+    off_center_meters = None  # number of meters to left (negative) or right (positive)
+
+    def __init__(self):
+        pass
+
+    def calibrate_camera(self, calibration_image_names, xct=9, yct=6, shape=(720, 1280)):
+        """
+        Calibrate the camera using a list of sample chessboard images.
+        :param calibration_image_names: list of paths to chessboard images
+        :param shape: expected shape of input images
+        :param xct: expected corners in x direction for camera calibration
+        :param yct: expected corners in y direction for camera calibration
+        """
+        object_points, image_points, pattern_found = \
+            cc.calibration_points(calibration_image_names, xct=xct, yct=yct)
+        _, self.mtx, self.dist, _, _ = cc.calibrate_camera(object_points, image_points, shape)
+
+    def initialize_perspective_transform(self, image):
+        ci = cc.undistort_image(image, self.mtx, self.dist, self.mtx)
+        bi = self.combined_binary_image(ci)
+        self.src, self.dst = pt.find_quad_points(bi)
+        self.M_transform = cv2.getPerspectiveTransform(self.src, self.dst)
+        self.Minv_transform = cv2.getPerspectiveTransform(self.dst, self.src)
+
+    def first_video_frame_image(self, image):
+        searched_image, left_fit, right_fit, left_lane_inds, right_lane_inds = \
+            fl.sliding_histo_search(image)
+        self.left_fit = left_fit
+        self.right_fit = right_fit
+        return searched_image, left_lane_inds, right_lane_inds
+
+    def undistort_image(self, image):
+        return cc.undistort_image(image, self.mtx, self.dist, self.mtx)
+
+    def binary_image(self, image):
+        return bt.combined_binary(image)
+
+    def combined_binary_image(self, image):
+        return bt.combined_binary(image)
+
+    def perspective_transform_image(self, image):
+        return pt.perspective_transform(image, self.M_transform)
+
+    def fit_frame_image(self, image):
+        ploty, (self.left_fit, self.right_fit), (left_fitx, right_fitx) = \
+            fl.margin_search(image, self.left_fit, self.right_fit)
+        self.left_curve_radius_meters, self.right_curve_radius_meters = \
+            fl.radius_curvature_meters(ploty, left_fitx, right_fitx)
+        self.off_center_meters = \
+            fl.off_center_meters(image.shape[1], left_fitx[-1], right_fitx[-1])
+
+    def average_curve_radius_meters(self):
+        return (self.left_curve_radius_meters + self.right_curve_radius_meters) / 2.
+
+    def road_ahead_image(self, image, transformed):
+        return fl.visualize_road_ahead(image,
+                                       transformed, self.left_fit, self.right_fit,
+                                       self.average_curve_radius_meters(),
+                                       self.off_center_meters, self.Minv_transform)
+
+    def apply_pipeline(self, image):
+        if self.left_fit is None or self.right_fit is None:
+            self.first_video_frame_image(image)
+
+        corrected_image = self.undistort_image(image)
+        binary_image = self.binary_image(corrected_image)
+        transformed = self.perspective_transform_image(binary_image)
+        self.fit_frame_image(transformed)
+        road_ahead_image = \
+            self.road_ahead_image(corrected_image, transformed)
+        return road_ahead_image
+
+
 def save_single_example(output_image_name, title, image, cmap='jet'):
     """
     save the image to the output file
@@ -63,41 +149,37 @@ def save_full_example(output_image_name, original_image, corrected_image, binary
     print("saved to: {}".format(output_image_name))
 
 
-def demo_pipeline(calibration_image_names, road_image_names, straight_image_name, output_folder,
-                  shape=(720, 1280), xct=9, yct=6):
+def demo_pipeline(calibration_image_names, road_image_names, straight_image_name, output_folder):
     """
     run all parts of the pipeline and write sample images to ouput folder
+    :param straight_image_name: image used for picking quad points during perspective initialization
     :param calibration_image_names: list of images to use for camera calibration
     :param road_image_names: list of images to apply pipeline to
     :param output_folder: folder to write output images to
-    :param shape: expected shape of input images
-    :param xct: expected corners in x direction for camera calibration
-    :param yct: expected corners in y direction for camera calibration
     """
     if not path.exists(output_folder):
         os.makedirs(output_folder)
 
+    # initialization of the pipeline will calibrate camera and init the perspective transforms
+    pipeline = RoadAheadPipeline()
+
     # camera calibration
-    object_points, image_points, pattern_found = \
-        cc.calibration_points(calibration_image_names, xct=xct, yct=yct)
-    ret, mtx, dist, rvecs, tvecs = cc.calibrate_camera(object_points, image_points, shape)
+    pipeline.calibrate_camera(calibration_image_names)
 
     # perspective transform initialization
-    ci = cc.undistort_image(cv2.imread(straight_image_name), mtx, dist, mtx)
-    bi = bt.combined_binary(ci)
-    src, dst = pt.find_quad_points(bi)
+    pipeline.initialize_perspective_transform(cv2.imread(straight_image_name))
 
     for i, file_name in enumerate(road_image_names):
         base_name = path.split(file_name)[1]
         original_image = cv2.imread(file_name)
 
         # undistort the image
-        corrected_image = cc.undistort_image(original_image, mtx, dist, mtx)
+        corrected_image = pipeline.undistort_image(original_image)
         save_single_example('/'.join([output_folder, "corrected_{}".format(base_name)]),
                             "corrected", cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB))
 
         # create threshholded binary image
-        binary_image = bt.combined_binary(corrected_image)
+        binary_image = pipeline.binary_image(corrected_image)
         save_single_example('/'.join([output_folder, "pipeline_binary_{}".format(base_name)]),
                             "binary", binary_image, cmap='gray')
 
@@ -106,37 +188,23 @@ def demo_pipeline(calibration_image_names, road_image_names, straight_image_name
                           cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB),
                           binary_image)
 
-        transformed = pt.perspective_transform(binary_image, src, dst)
+        transformed = pipeline.perspective_transform_image(binary_image)
         save_single_example('/'.join([output_folder, "pipeline_transformed_{}".format(base_name)]),
                             "pipeline transformed", transformed, cmap='gray')
 
-        # weighted = fl.sliding_window_search(transformed)
-        # save_single_example('/'.join([output_folder, "pipeline_weighted_{}".format(base_name)]),
-        #                     "pipeline weighted", weighted, cmap='jet')
-        searched_image, nonzerox, nonzeroy, left_fit, right_fit, left_lane_inds, right_lane_inds = \
-            fl.sliding_histo_search(transformed)
+        searched_image, left_lane_inds, right_lane_inds = pipeline.first_video_frame_image(transformed)
         fl.visualize_sliding_search('/'.join([output_folder, "pipeline_sliding_search_{}".format(base_name)]),
-                                    "sliding search", transformed, searched_image, nonzerox, nonzeroy,
-                                    left_fit, right_fit, left_lane_inds, right_lane_inds)
+                                    "sliding search", transformed, searched_image,
+                                    pipeline.left_fit, pipeline.right_fit, left_lane_inds, right_lane_inds)
 
-        ploty, (nonzerox, nonzeroy), (left_fit, right_fit), (left_fitx, right_fitx) = \
-            fl.margin_search(transformed, left_fit, right_fit)
+        # fit the same image again since all we did so far is init the histo
+        pipeline.fit_frame_image(transformed)
 
-        left_curverad1, right_curverad1 = fl.radius_curvature_pixel_space(ploty, left_fit, right_fit)
-        print("curves: {}, {}".format(left_curverad1, right_curverad1))
+        road_ahead_image = \
+            pipeline.road_ahead_image(cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB), transformed)
+        fl.save_image('/'.join([output_folder, "pipeline_road_ahead_{}".format(base_name)]),
+                      "pipeline road ahead", road_ahead_image)
 
-        left_curverad2, right_curverad2 = fl.radius_curvature_meters(ploty, left_fitx, right_fitx)
-        print("curves: {}, {}".format(left_curverad2, right_curverad2))
-        avg_curvature_meters = (left_curverad2 + right_curverad2) / 2.
-        print("curvature meters: {}".format(avg_curvature_meters))
-
-        off_center_meters = fl.off_center_meters(binary_image.shape[1], left_fitx[-1], right_fitx[-1])
-        print("off center: {}".format(off_center_meters))
-
-        fl.visualize_road_ahead('/'.join([output_folder, "pipeline_road_ahead_{}".format(base_name)]),
-                                "pipeline road ahead", cv2.cvtColor(corrected_image, cv2.COLOR_BGR2RGB),
-                                transformed, left_fit, right_fit, avg_curvature_meters, off_center_meters,
-                                cv2.getPerspectiveTransform(dst, src))
 
 def main():
     import optparse
@@ -171,7 +239,7 @@ def main():
     calibrate_names = glob.glob(calibrate_pattern)
     road_pattern = '/'.join([road_folder, pattern])
     road_names = glob.glob(road_pattern)
-    demo_pipeline(calibrate_names, road_names, straight_image, output_folder, xct=xct, yct=yct)
+    demo_pipeline(calibrate_names, road_names, straight_image, output_folder)
 
 
 if __name__ == "__main__":
