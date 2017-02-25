@@ -112,7 +112,7 @@ def color_binary(image, thresh=(170, 255)):
 
 def combined_binary(image, gradx_kernel=3, grady_kernel=3, mag_kernel=3, dir_kernel=3,
                     gradx_thresh=(0, 255), grady_thresh=(0, 255), mag_thresh=(30, 100), dir_thresh=(0.7, 1.3),
-                    color_thresh=(170, 255)):
+                    color_thresh=(100, 210)):
     """
     use combination of all binary lane line identification methods to give best guess of lanes
     :param image: corrected image
