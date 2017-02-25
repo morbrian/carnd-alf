@@ -48,7 +48,7 @@ undistort any arbitrary image produced by the camera. This next image demonstrat
 ## Binary Image Analysis
 
 We used a combination filter to highlight the lane line locations based on various characteristics we
-further describe in this section. (binary_thresholds.py:combined_binary line:113)
+further describe in this section. [binary_thresholds.py:combined_binary](https://github.com/morbrian/carnd-alf/blob/57a63092b970a89ca26dee61001739e96116a758/binary_thresholds.py#L113)
 
 We used the `Sobel` algorithm to identify clusters of pixels likely to be lines based
  on thresholded x and y gradient values. [binary_thresholds.py:abs_sobel_threshold](https://github.com/morbrian/carnd-alf/blob/57a63092b970a89ca26dee61001739e96116a758/binary_thresholds.py#L6)
@@ -162,7 +162,7 @@ was required to cross the first light colored overpass. Most of the video wobble
 as the lane line dashes come and go. There is a minor increase in wobbling after the second over pass due
 to the shadows, but it does not appear to creat significant risk to how the vehicle would drive.
 
-Watch the video here: [road_ahead_video](road_ahead_video)
+Watch the video here: [project_video_output](project_video_output)
 
 ## Implementation Discussion
 
@@ -188,5 +188,5 @@ parameters sets for each image before processing it.
 [perspective_transform2_image]: ./output_folder/perspective_process_straight_lines2.jpg "perspective_transform2_image"
 [sliding_search]: ./output_folder/pipeline_sliding_search_test3.jpg "sliding_search"
 [road_ahead]: ./output_folder/pipeline_road_ahead_test4.jpg "road_ahead"
-[project_video]: ./output_folder/road_ahead_project_video.mp4 "road_ahead_video"
+[project_video_output]: ./output_folder/road_ahead_project_video.mp4 "road_ahead_video"
 
