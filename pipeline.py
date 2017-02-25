@@ -17,7 +17,6 @@ from time import time
 
 class RoadAheadPipeline:
     """ container class for road ahead image processing """
-
     mtx = None  # matrix for camera calibration
     dist = None  # distance array for camera calibration
     src = None  # source points for transforms
@@ -30,6 +29,8 @@ class RoadAheadPipeline:
     right_curve_radius_meters = None  # right radius meters
     off_center_meters = None  # number of meters to left (negative) or right (positive)
     frame_counter = 0
+    save_frame_range = None
+    frame_output_folder = None
 
     def __init__(self):
         pass
@@ -49,6 +50,11 @@ class RoadAheadPipeline:
         print("Camera Calibration Duration: {}s".format(round(time() - t0, 3)))
 
     def initialize_perspective_transform(self, image):
+        """
+        initialize the perspective transform matrices by using a straight line
+        image to choose for points of a trapezoid to use as source points.
+        :param image: undistorted front facing straight lane line image
+        """
         t0 = time()
         ci = cc.undistort_image(image, self.mtx, self.dist, self.mtx)
         bi = self.combined_binary_image(ci)
@@ -58,6 +64,13 @@ class RoadAheadPipeline:
         print("Perspective Transform Init Duration: {}s".format(round(time() - t0, 3)))
 
     def first_video_frame_image(self, image, visualize=False):
+        """
+        perform the initialization work on the first input image to guess lane line locations,
+        while later images can be processed more quickly after this initial window.
+        :param image: perspective transformed binary image
+        :param visualize: true if the image should be annotated and returned
+        :return: annotated image, left and right lane indices
+        """
         t0 = time()
         searched_image, left_fit, right_fit, left_lane_inds, right_lane_inds = \
             fl.sliding_histo_search(image, visualize=visualize)
@@ -79,6 +92,11 @@ class RoadAheadPipeline:
         return pt.perspective_transform(image, self.M_transform)
 
     def fit_frame_image(self, image):
+        """
+        fit a polynomial line function to each lane line and calculate
+        the curvature and the distance from center of the lane.
+        :param image: transformed image
+        """
         ploty, (self.left_fit, self.right_fit), (left_fitx, right_fitx) = \
             fl.margin_search(image, self.left_fit, self.right_fit)
         self.left_curve_radius_meters, self.right_curve_radius_meters = \
@@ -97,11 +115,24 @@ class RoadAheadPipeline:
                                        use_rgb=use_rgb, frame=frame)
 
     def apply_pipeline(self, image):
+        """
+        Apply the entire pipeline to a single image frame.
+        :param image:
+        :return:
+        """
         self.frame_counter += 1
+
+        # useful debugging condition, a range of troublesome images can optionally be saved to disk
+        if self.save_frame_range is not None and self.frame_counter in self.save_frame_range:
+            frame_output = '/'.join([self.frame_output_folder, "frame{:05d}.jpg".format(self.frame_counter)])
+            cv2.imwrite(frame_output, cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            print("saved frame: {}".format(frame_output))
+
         corrected_image = self.undistort_image(image)
         binary_image = self.binary_image(corrected_image)
         transformed = self.perspective_transform_image(binary_image)
 
+        # we only initialize on the first frame once
         if self.left_fit is None or self.right_fit is None:
             self.first_video_frame_image(transformed)
 
@@ -160,13 +191,24 @@ def save_full_example(output_image_name, original_image, corrected_image, binary
     print("saved to: {}".format(output_image_name))
 
 
-def process_video(calibration_image_names, video_file, straight_image_name, output_folder):
+def process_video(calibration_image_names, video_file, straight_image_name, output_folder, save_frame_range=None):
+    """
+    Process all frames of the video file by applying the pipeline process.
+    Calibrates the camera with calibration images, and initalizes the perspective transform with straight image.
+    :param calibration_image_names: used for camera calibration, should be chess boards
+    :param video_file: video to process
+    :param straight_image_name: used for perspective transform initialization, image of road with straight lines
+    :param output_folder: location where output should be written
+    :param save_frame_range: frame range of frames to save to disk
+    """
     if not path.exists(output_folder):
         os.makedirs(output_folder)
 
     # initialization of the pipeline will calibrate camera and init the perspective transforms
     pipeline = RoadAheadPipeline()
     pipeline.bgr2rgb = True
+    pipeline.save_frame_range = save_frame_range
+    pipeline.frame_output_folder = output_folder
 
     # camera calibration
     pipeline.calibrate_camera(calibration_image_names)
@@ -259,6 +301,8 @@ def main():
                       help="output folder to hold examples of images during process.")
     parser.add_option('-p', '--pattern', dest='pattern', default='*.jpg',
                       help="filename pattern to match all files to use for calibration.")
+    parser.add_option('--save_frame_range', dest='save_frame_range', default=None,
+                      help="min,max inclusive frame ids to save frames to disk.")
 
     options, args = parser.parse_args()
     calibrate_folder = options.calibrate_folder
@@ -268,6 +312,12 @@ def main():
     straight_image = options.straight_image
     video_file = options.video_input
     activity = options.activity
+    save_frame_range = options.save_frame_range
+
+    if save_frame_range is not None:
+        minmax = save_frame_range.split(',')
+        assert len(minmax) == 2, "save_frame_range must be two ints separated by comma, ie: 23,31"
+        save_frame_range = range(int(minmax[0]), int(minmax[1]))
 
     # load calibration list
     calibrate_pattern = '/'.join([calibrate_folder, pattern])
@@ -282,7 +332,7 @@ def main():
 
     if 'all' == activity or 'video' == activity:
         print("Process video file {}".format(video_file))
-        process_video(calibrate_names, video_file, straight_image, output_folder)
+        process_video(calibrate_names, video_file, straight_image, output_folder, save_frame_range=save_frame_range)
         print("Video processing complete")
 
 if __name__ == "__main__":

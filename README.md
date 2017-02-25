@@ -4,7 +4,13 @@ This is project 4 in the first third of the Udacity Self Driving Car Nanodegree.
 
 The purpose of the project is to dive deeper into image processing and computer vision
 strategies for identifying lane lines in images taken from a front facing dash mounted 
-camera in vehicle driving down roads with painted lane lines.
+camera in vehicle driving down roads with painted lane lines.j
+
+Any results in the output folder may be reproduced by running each of the main methods with default values.
+
+        python camera_calibration.py
+        python perspective_transform.py
+        python pipeline.py
 
 ## Write Up
 
@@ -15,12 +21,11 @@ This is document is the write up.
 The camera calibration code is available in [camera_calibration.py](./camera_calibration.py).
 
 The calibration process is run once at program initialization time on each of the chess board images
-found in the folder [camera_cal](./camera_cal). The following basic sequence of steps is followed
-in order to calculate the calibration data.
+found in the folder [camera_cal](./camera_cal).
 
-        for each chessboard image: (camera_calibrtion.py:calibration_points line:29)
-            identify corner points (camera_calibration.py:corner_points line:10)
-            use points to calibrate camera (camera_calibration.py:calibrate_camera line:61)
+At `camera_calibrtion.py:calibration_points line:50` the calibration images are looped over.
+The combined image point outputs from this process are used by the function `calibrate_camera`,
+in `camera_calibration.py line:61`
             
 The calibration process provides the `matrix` and `distance` array parameters to be used for
 undistorting images taken by the same camera.
@@ -44,16 +49,16 @@ undistort any arbitrary image produced by the camera. This next image demonstrat
 ## Binary Image Analysis
 
 We used a combination filter to highlight the lane line locations based on various characteristics we
-further describe in this section. (pipeline.py:combined_binary line:167)
+further describe in this section. (binary_thresholds.py:combined_binary line:113)
 
 We used the `Sobel` algorithm to identify clusters of pixels likely to be lines based
- on thresholded x and y gradient values. (pipeline.py:abs_sobel_threshold line:60)
+ on thresholded x and y gradient values. (binary_thresholds.py:abs_sobel_threshold line:6)
  
 We converted the BGR image to an HLS image, and used the saturation channel to better identify
-the yellow and white painted lines. (pipeline.py:color_binary line:149)
+the yellow and white painted lines. (binary_thresholds.py:color_binary line:95)
 
 We produced a direction binary using `arctan2` on the sobel gradients and filtered on radian values 
-within a threshold range. (pipeline.py:direction_threshold line:120)
+within a threshold range. (binary_thresholds.py:direction_threshold line:66)
 
 We produced a magnitude binary to identify likely pixels by the magnitude of the sobel gradients and
 filtered these on a threshold range.
@@ -80,7 +85,7 @@ The initialzation process seeks to find the `src` and `dst` points which can be 
 transforms for the same camera mount location.
 
 The process we used for identifying `src` and `dst` points for the image is very much like what we
-used in Project-1 of the Udacity CarND. (perspective_transform.py:find_quad_points line:207)
+used in Project-1 of the Udacity CarND. (perspective_transform.py:find_quad_points line:209)
 
 1. We use the **Hough Lines** algorithm to discover the line segments
 2. From the segment points we can identify functions for the left and right lane lines.
@@ -126,26 +131,51 @@ fitted polylines (yellow).
 ## Lane Curvature
 
 Our lane curvature calculations are in finding_lines.py. We first used the polynomial fit line output 
-of the lane fitting algorithm as input to the `radius_curvature_pixel_space` function (line 241)
+of the lane fitting algorithm as input to the `radius_curvature_pixel_space` function (line 302)
 to produce the curved lines in pixel space. Then based on advice in the lesson we get the
-real world curvature in meters in `radius_curvature_meters` (line 257).
+real world curvature in meters in `radius_curvature_meters` (line 318).
 
 ## Lane Line Result Visualization
 
 The road ahead is highlighted in green in the image sample below, and the curvature and distance
 from the lane center are both labeled in the top left corner of the image in meters.
 
-The code for this visualization is at `finding_lanes.py:visualize_road_ahead line: 27`.
+The code for this visualization is at `finding_lanes.py:visualize_road_ahead line: 42`.
 
 ![road_ahead][road_ahead]
 
 ## Pipeline Video
 
-TODO
+The two important entry points for the video pipeline code are:
+
+1. pipeline.py:process_video (line 194)
+    
+    This performs the initial calibration an inititalization steps, then loads the video.
+
+2. pipeline.py:apply_pipeline (line 117)
+
+    This performs each step of the video frame processing, with a small amount of extra codej
+    to help with debugging support.
+
+The pipeline performed reasonable well on the project video. Some extra tuning of the HLS saturation threshhold
+was required to cross the first light colored overpass. Most of the video wobbles a little on the bottom right
+as the lane line dashes come and go. There is a minor increase in wobbling after the second over pass due
+to the shadows, but it does not appear to creat significant risk to how the vehicle would drive.
+
+Watch the video here: [road_ahead_video](road_ahead_video)
 
 ## Implementation Discussion
 
-TODO
+The pipeline is sensitive to changes in road color and lighting changes. Most of these problems can
+easily be overcome in isolation simply by tuning the parameters for one or more of the binary images
+we combine. However, getting one category of image tuned correctly can cause issues in another category
+of image.
+
+One idea I was considering but did not take the time to implement was to directly categorize the images
+but the priority of tuning parameters used. Some example categories might have been "Light Road", "Dark Road",
+"Scattered Shadows", etc. Then Associate these road categories with the tuning parameters that I found to
+work best for images in each category. Finally, apply a machine learning technique to identify the best
+parameters sets for each image before processing it.
 
 
 [//]: # (Image References)
@@ -158,5 +188,5 @@ TODO
 [perspective_transform2_image]: ./output_folder/perspective_process_straight_lines2.jpg "perspective_transform2_image"
 [sliding_search]: ./output_folder/pipeline_sliding_search_test3.jpg "sliding_search"
 [road_ahead]: ./output_folder/pipeline_road_ahead_test4.jpg "road_ahead"
-
+[project_video]: ./output_folder/road_ahead_project_video.mp4 "road_ahead_video"
 

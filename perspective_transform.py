@@ -7,6 +7,7 @@ import os
 import os.path as path
 import binary_thresholds as bt
 
+
 def save_full_example(output_image_name, corrected_image, quad_image, transform_image):
     """
     create a single figure of all images in a row and save to output name
