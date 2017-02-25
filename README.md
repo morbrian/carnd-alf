@@ -162,7 +162,7 @@ was required to cross the first light colored overpass. Most of the video wobble
 as the lane line dashes come and go. There is a minor increase in wobbling after the second over pass due
 to the shadows, but it does not appear to creat significant risk to how the vehicle would drive.
 
-Watch the video here: [project_video_output](project_video_output)
+Watch the video here: [project_video_output](./output_folder/road_ahead_project_video.mp4)
 
 ## Implementation Discussion
 
@@ -188,5 +188,3 @@ parameters sets for each image before processing it.
 [perspective_transform2_image]: ./output_folder/perspective_process_straight_lines2.jpg "perspective_transform2_image"
 [sliding_search]: ./output_folder/pipeline_sliding_search_test3.jpg "sliding_search"
 [road_ahead]: ./output_folder/pipeline_road_ahead_test4.jpg "road_ahead"
-[project_video_output]: ./output_folder/road_ahead_project_video.mp4 "road_ahead_video"
-
